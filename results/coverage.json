@@ -1,0 +1,41 @@
+{
+  "tested_commit": "c2e3813c1d64e86044fd9435d5ebae237e5eb836",
+  "node": "v26.9.0",
+  "timestamp_utc": "2026-11-10T08:18:49.229584+00:00",
+  "tests": {
+    "jest_passed": 87,
+    "playwright_passed": 13
+  },
+  "all": {
+    "lines": 406,
+    "covered": 361,
+    "percent": 88.91
+  },
+  "files": {
+    "server/index.ts": {
+      "lines": 257,
+      "covered": 218,
+      "percent": 84.82
+    },
+    "src/App.tsx": {
+      "lines": 64,
+      "covered": 58,
+      "percent": 90.62
+    },
+    "src/connection.ts": {
+      "lines": 65,
+      "covered": 65,
+      "percent": 100
+    },
+    "src/main.tsx": {
+      "lines": 1,
+      "covered": 1,
+      "percent": 100
+    },
+    "src/protocol.ts": {
+      "lines": 19,
+      "covered": 19,
+      "percent": 100
+    }
+  }
+}
