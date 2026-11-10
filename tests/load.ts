@@ -22,6 +22,7 @@ const latencies: number[] = [];
 const sockets: { ws: WebSocket; doc: Y.Doc }[] = [];
 let acknowledgements = 0;
 let errors = 0;
+const disconnected: Record<string, number> = {};
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function connect(i: number) {
@@ -39,18 +40,25 @@ async function connect(i: number) {
     }
     ws.send(JSON.stringify({ type: 'update', id: ++id, data: Buffer.from(bytes).toString('base64') }));
   });
-  shapes.observe(event => {
-    if (event.transaction.origin !== remote) return;
-    for (const delta of event.changes.delta) {
-      for (const shape of (delta.insert as { id: string }[] | undefined) ?? []) {
-        const sender = Number(shape.id.split('/')[0]);
-        if (sender % 2 === i % 2 || delivered.has(shape.id)) continue;
-        const start = emitted.get(shape.id);
-        if (start === undefined) continue;
-        delivered.add(shape.id);
-        latencies.push(performance.now() - start);
+  if (i < 2) {
+    // Sample from one client on each backend. All clients still apply every edit.
+    shapes.observe(event => {
+      if (event.transaction.origin !== remote) return;
+      for (const delta of event.changes.delta) {
+        for (const shape of (delta.insert as { id: string }[] | undefined) ?? []) {
+          const sender = Number(shape.id.split('/')[0]);
+          if (sender % 2 === i % 2 || delivered.has(shape.id)) continue;
+          const start = emitted.get(shape.id);
+          if (start === undefined) continue;
+          delivered.add(shape.id);
+          latencies.push(performance.now() - start);
+        }
       }
-    }
+    });
+  }
+  ws.on('close', (code, reason) => {
+    const key = code + ' ' + reason.toString();
+    disconnected[key] = (disconnected[key] ?? 0) + 1;
   });
   await new Promise<void>((resolve, reject) => {
     const deadline = setTimeout(() => reject(new Error('Socket did not sync')), 10_000);
@@ -97,14 +105,15 @@ try {
     connected_clients: sockets.filter(({ ws }) => ws.readyState === WebSocket.OPEN).length,
     backends: hosts.length, duration_seconds: seconds, edits_sent: edits, acknowledgements,
     cross_backend_deliveries: latencies.length,
-    p95_first_cross_backend_delivery_ms: latencies[Math.ceil(0.95 * latencies.length) - 1] ?? null,
+    p95_cross_backend_delivery_ms: latencies[Math.ceil(0.95 * latencies.length) - 1] ?? null,
     all_clients_converged: checksums.size === 1 && sockets.every(({ doc }) => doc.getArray('shapes').length === edits),
-    errors, timestamp_utc: new Date().toISOString(),
+    errors, disconnected, timestamp_utc: new Date().toISOString(),
   };
   await mkdir('results', { recursive: true });
   await writeFile('results/load.json', JSON.stringify(result, null, 2) + '\n');
   console.log(result);
-  if (!result.all_clients_converged || acknowledgements !== edits || errors) process.exitCode = 1;
+  if (!result.all_clients_converged || acknowledgements !== edits || errors ||
+      result.connected_clients !== count || latencies.length !== edits) process.exitCode = 1;
 } finally {
   for (const { ws, doc } of sockets) {
     ws.close();
