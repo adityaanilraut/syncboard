@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import coverage from 'istanbul-lib-coverage';
+import sourceMaps from 'istanbul-lib-source-maps';
 
 const combined = coverage.createCoverageMap(
   JSON.parse(readFileSync('coverage/coverage-final.json', 'utf8')),
@@ -8,7 +9,10 @@ const combined = coverage.createCoverageMap(
 const browserDirectory = process.argv[2];
 for (const file of ['coverage/e2e/coverage-final.json',
   ...readdirSync(browserDirectory).map(file => join(browserDirectory, file))]) {
-  const e2e = JSON.parse(readFileSync(file, 'utf8'));
+  const raw = JSON.parse(readFileSync(file, 'utf8'));
+  const e2e = file.startsWith(browserDirectory)
+    ? (await sourceMaps.createSourceMapStore().transformCoverage(coverage.createCoverageMap(raw))).toJSON()
+    : raw;
   for (const [path, data] of Object.entries(e2e)) {
     const name = relative(process.cwd(), path);
     if (name.startsWith('src/') || name.startsWith('server/')) combined.addFileCoverage(data);
