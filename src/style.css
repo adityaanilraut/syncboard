@@ -1,0 +1,41 @@
+:root {
+  color: #172b2a;
+  background: #f2f4ef;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-synthesis: none;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+button { font: inherit; cursor: pointer; }
+.topbar {
+  display: flex; align-items: center; gap: 18px; padding: 12px 24px;
+  min-height: 68px; background: #fff; border-bottom: 1px solid #dbe3d8;
+}
+.brand { font-size: 1.12rem; font-weight: 750; text-decoration: none; color: #172b2a; }
+.brand span { margin-right: 6px; color: #257969; font-size: 1.4rem; }
+.status { font-size: .78rem; text-transform: capitalize; color: #70511c; }
+.status.online { color: #236651; }
+.share { border: 0; border-radius: 7px; background: #1b594e; color: #fff; padding: 10px 16px; }
+.topbar .share { margin-left: auto; }
+.workspace { display: grid; gap: 12px; justify-items: center; padding: 18px 20px; }
+.toolbar {
+  display: flex; flex-wrap: wrap; gap: 5px; align-items: center; background: white;
+  border: 1px solid #dbe3d8; padding: 6px; border-radius: 12px;
+}
+.toolbar button {
+  width: 37px; height: 36px; border: 1px solid transparent; border-radius: 6px;
+  background: transparent; color: #172b2a; font-size: 1.35rem;
+}
+.toolbar button[aria-pressed="true"] { background: #e4f1e9; border-color: #aac7b8; }
+.swatch svg { width: 20px; display: block; margin: auto; }
+.separator { width: 1px; height: 24px; background: #dbe3d8; }
+.board {
+  width: min(100%, 1200px); height: min(70vh, 720px); touch-action: none; cursor: crosshair;
+  background: radial-gradient(#cbd8ce 1px, transparent 1px) 0 0 / 20px 20px, white;
+  border: 1px solid #dbe3d8; border-radius: 12px;
+}
+.footnote { margin: 0; font-size: .85rem; color: #49655c; }
+.welcome { display: grid; place-items: center; min-height: 100dvh; padding: 24px; }
+.welcome-card { max-width: 620px; padding: clamp(24px, 7vw, 72px); background: white; border: 1px solid #dbe3d8; border-radius: 18px; }
+.welcome h1 { font-size: clamp(2rem, 7vw, 3.5rem); line-height: 1.02; margin: 24px 0 16px; letter-spacing: -.04em; }
+.welcome p { line-height: 1.55; }

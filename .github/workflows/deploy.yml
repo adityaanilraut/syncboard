@@ -1,0 +1,53 @@
+name: Deploy SyncBoard
+on: workflow_dispatch
+permissions:
+  contents: read
+concurrency:
+  group: syncboard-aws
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      ECR_URL: ${{ vars.ECR_URL }}
+      SYNCBOARD_ORIGIN: ${{ vars.SYNCBOARD_ORIGIN }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci && npm test && npm run build
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Publish image and update ECS service
+        shell: bash
+        run: |
+          set -euo pipefail
+          registry="${ECR_URL%%/*}"
+          repository="${ECR_URL#*/}"
+          if ! aws ecr describe-images --repository-name "$repository" --image-ids imageTag="$GITHUB_SHA" >/dev/null 2>&1; then
+            aws ecr get-login-password | docker login --username AWS --password-stdin "$registry"
+            docker build -t "$ECR_URL:$GITHUB_SHA" .
+            docker push "$ECR_URL:$GITHUB_SHA"
+          fi
+          digest=$(aws ecr describe-images --repository-name "$repository" --image-ids imageTag="$GITHUB_SHA" --query 'imageDetails[0].imageDigest' --output text)
+          current=$(aws ecs describe-services --cluster syncboard --services syncboard --query 'services[0].taskDefinition' --output text)
+          aws ecs describe-task-definition --task-definition "$current" --query taskDefinition --output json |
+            jq --arg image "$ECR_URL@$digest" '
+              del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy, .deregisteredAt)
+              | (.containerDefinitions[] | select(.name == "board").image) = $image
+            ' > "$RUNNER_TEMP/task.json"
+          revision=$(aws ecs register-task-definition --cli-input-json "file://$RUNNER_TEMP/task.json" --query 'taskDefinition.taskDefinitionArn' --output text)
+          aws ecs update-service --cluster syncboard --service syncboard --task-definition "$revision" >/dev/null
+          aws ecs wait services-stable --cluster syncboard --services syncboard
+          deployed=$(aws ecs describe-services --cluster syncboard --services syncboard --query 'services[0].deployments[?status==`PRIMARY`].taskDefinition | [0]' --output text)
+          test "$deployed" = "$revision"
+          curl --fail --retry 5 --retry-all-errors "$SYNCBOARD_ORIGIN/healthz"

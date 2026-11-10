@@ -1,0 +1,30 @@
+name: CI
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: make demo
+      - run: make test
+      - if: failure()
+        run: docker compose logs
+      - if: always()
+        run: docker compose down -v
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: opentofu/setup-opentofu@v1
+      - run: tofu -chdir=terraform fmt -check
+      - run: tofu -chdir=terraform init -backend=false
+      - run: tofu -chdir=terraform validate
