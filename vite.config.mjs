@@ -16,6 +16,7 @@ export default defineConfig({
       });
       const instrumenter = instrumentation.createInstrumenter({
         esModules: true, produceSourceMap: true,
+        coverageGlobalScope: 'globalThis', coverageGlobalScopeFunc: false,
       });
       return {
         code: instrumenter.instrumentSync(compiled.code, id, JSON.parse(compiled.map)),
