@@ -17,5 +17,5 @@ module.exports = {
     '\\.css$': '<rootDir>/tests/styles.cjs',
   },
   collectCoverageFrom: ['src/**/*.{ts,tsx}', 'server/**/*.ts'],
-  coverageReporters: ['text', 'json-summary'],
+  coverageReporters: ['text', 'json', 'json-summary'],
 };

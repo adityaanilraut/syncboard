@@ -27,7 +27,7 @@ Browser A ─ WebSocket ─ Server A ─┐
 Browser B ─ WebSocket ─ Server B ─┘
 ```
 
-Both clients maintain a Yjs document. The server acknowledges an edit after Redis accepts it, and publishes a notification so peers can read the new stream entries. Each server also checks for missed notifications. On join or reconnect, the server sends its reconstructed state. Yjs makes replays idempotent. Cursor movement is ephemeral.
+Both clients maintain a Yjs document. The server acknowledges an edit after Redis accepts it, and publishes that update so both servers can deliver it immediately. Each server also checks the stream for missed updates. On join or reconnect, the server sends its reconstructed state. Yjs makes replays idempotent. Cursor movement is ephemeral.
 
 Room URLs grant access to anyone who has the link. The demo limits update size, per-connection message rate, and retained updates per room. Redis uses AOF in the Compose demo. The application uses a single Redis primary for persistence, so availability and durability depend on that Redis deployment.
 

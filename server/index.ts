@@ -20,9 +20,15 @@ const memberLimit = 100;
 const append = `
   if redis.call('XLEN', KEYS[1]) >= 50000 then return false end
   local id = redis.call('XADD', KEYS[1], '*', 'data', ARGV[1])
-  redis.call('PUBLISH', ARGV[2], ARGV[3])
+  redis.call('PUBLISH', ARGV[2], cjson.encode({room=ARGV[3], id=id, data=ARGV[1]}))
   return id
 `;
+
+function after(id: string, previous: string) {
+  const [time, sequence] = id.split('-').map(Number);
+  const [previousTime, previousSequence] = previous.split('-').map(Number);
+  return time > previousTime || (time === previousTime && sequence > previousSequence);
+}
 
 function send(socket: WebSocket, frame: ServerFrame) {
   if (socket.readyState !== WebSocket.OPEN) return;
@@ -39,6 +45,7 @@ class Room {
   joining = 0;
   readonly key: string;
   private last = '0-0';
+  private delivered = new Set<string>();
   private dirty = false;
   private draining?: Promise<void>;
 
@@ -59,14 +66,23 @@ class Room {
       do {
         const rows = await redis.xRange(this.key, '(' + this.last, '+', { COUNT: 256 }) ?? [];
         for (const row of rows) {
-          const data = row.message.data;
-          Y.applyUpdate(this.doc, Buffer.from(data, 'base64'));
-          this.broadcast({ type: 'update', data });
+          if (!this.delivered.delete(row.id)) this.apply(row.message.data);
           this.last = row.id;
         }
         count = rows.length;
       } while (count === 256);
     }
+  }
+
+  receive(id: string, data: string) {
+    if (!after(id, this.last) || this.delivered.has(id)) return;
+    this.apply(data);
+    this.delivered.add(id);
+  }
+
+  private apply(data: string) {
+    Y.applyUpdate(this.doc, Buffer.from(data, 'base64'));
+    this.broadcast({ type: 'update', data });
   }
 
   broadcast(frame: ServerFrame) {
@@ -80,7 +96,7 @@ class Room {
     const probe = new Y.Doc();
     try { Y.applyUpdate(probe, bytes); } finally { probe.destroy(); }
     const id = await redis.eval(append, {
-      keys: [this.key], arguments: [data, channel, JSON.stringify({ room: this.id })],
+      keys: [this.key], arguments: [data, channel, this.id],
     });
     if (!id) throw new Error('Room has reached its update limit');
   }
@@ -91,11 +107,13 @@ function report(error: unknown) {
 }
 
 await subscriber.subscribe(channel, raw => {
-  const { room, frame } = JSON.parse(raw) as { room: string; frame?: ServerFrame };
+  const { room, frame, id, data } = JSON.parse(raw) as {
+    room: string; frame?: ServerFrame; id?: string; data?: string;
+  };
   const local = rooms.get(room);
   if (!local) return;
   if (frame) local.broadcast(frame);
-  else void local.catchUp().catch(report);
+  else if (id && data) local.receive(id, data);
 });
 
 const app = express();

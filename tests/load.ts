@@ -19,6 +19,7 @@ const remote = Symbol('remote');
 const emitted = new Map<string, number>();
 const delivered = new Set<string>();
 const latencies: number[] = [];
+const schedulingDrift: number[] = [];
 const sockets: { ws: WebSocket; doc: Y.Doc }[] = [];
 let acknowledgements = 0;
 let errors = 0;
@@ -78,9 +79,11 @@ async function connect(i: number) {
   });
   return async (start: number) => {
     for (let step = 0; step < seconds; step++) {
-      await sleep(Math.max(0, start + step * 1000 + 1000 * i / count - performance.now()));
+      const scheduled = start + step * 1000 + 1000 * i / count;
+      await sleep(Math.max(0, scheduled - performance.now()));
       const key = i + '/' + step;
       emitted.set(key, performance.now());
+      schedulingDrift.push(performance.now() - scheduled);
       shapes.push([{ id: key, kind: 'pen', color: '#172b2a', points: [{ x: i, y: step }, { x: i + 1, y: step }] }]);
     }
   };
@@ -98,6 +101,8 @@ try {
   const checksums = new Set(sockets.map(({ doc }) =>
     createHash('sha256').update(JSON.stringify(doc.getArray('shapes').toArray())).digest('hex')));
   latencies.sort((a, b) => a - b);
+  schedulingDrift.sort((a, b) => a - b);
+  const p95 = (values: number[]) => values[Math.ceil(0.95 * values.length) - 1] ?? null;
   const result = {
     tested_commit: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
     environment: platform() + '/' + arch() + ' ' + release(),
@@ -105,7 +110,8 @@ try {
     connected_clients: sockets.filter(({ ws }) => ws.readyState === WebSocket.OPEN).length,
     backends: hosts.length, duration_seconds: seconds, edits_sent: edits, acknowledgements,
     cross_backend_deliveries: latencies.length,
-    p95_cross_backend_delivery_ms: latencies[Math.ceil(0.95 * latencies.length) - 1] ?? null,
+    p95_cross_backend_delivery_ms: p95(latencies),
+    p95_load_generator_drift_ms: p95(schedulingDrift),
     all_clients_converged: checksums.size === 1 && sockets.every(({ doc }) => doc.getArray('shapes').length === edits),
     errors, disconnected, timestamp_utc: new Date().toISOString(),
   };

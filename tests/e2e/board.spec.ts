@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { test, expect, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 
 const other = process.env.BOARD_B ?? 'http://127.0.0.1:3001';
 const room = () => '/room/' + randomUUID();
@@ -125,4 +126,24 @@ test('persists selected ink color on the other backend', async ({ page, context 
 
 test('rejects invalid room links', async ({ request }) => {
   expect((await request.get('/room/not-a-room')).status()).toBe(404);
+});
+
+test('copies the current room link to the clipboard', async ({ context, page }) => {
+  const path = room();
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await live(page, path);
+  await page.getByRole('button', { name: 'Copy room link' }).click();
+  await expect(page.getByRole('button', { name: 'Link copied' })).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(page.url());
+});
+
+test('removes the peer cursor when that client leaves', async ({ page, context }) => {
+  const path = room();
+  const second = await context.newPage();
+  await Promise.all([live(page, path), live(second, other + path)]);
+  const box = await second.getByRole('img').boundingBox();
+  await second.mouse.move(box!.x + 200, box!.y + 100);
+  await expect(page.locator('.board > g[transform]')).toHaveCount(1);
+  await second.close();
+  await expect(page.locator('.board > g[transform]')).toHaveCount(0);
 });
