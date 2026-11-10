@@ -1,0 +1,15 @@
+{
+  "tested_commit": "dde276157a802aa76c1cea88acadeb33616fc84d",
+  "environment": "darwin/arm64 27.2.0",
+  "node": "v26.9.0",
+  "connected_clients": 31,
+  "backends": 2,
+  "duration_seconds": 120,
+  "edits_sent": 7200,
+  "acknowledgements": 5163,
+  "cross_backend_deliveries": 5172,
+  "p95_first_cross_backend_delivery_ms": 10373.100833999997,
+  "all_clients_converged": false,
+  "errors": 1892,
+  "timestamp_utc": "2026-11-10T08:01:46.504Z"
+}

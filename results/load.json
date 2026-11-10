@@ -1,0 +1,17 @@
+{
+  "tested_commit": "635e5dea0a33c907ddcb2d29941c2987b292f752",
+  "environment": "darwin/arm64 27.2.0",
+  "node": "v26.9.0",
+  "connected_clients": 60,
+  "backends": 2,
+  "duration_seconds": 120,
+  "edits_sent": 7200,
+  "acknowledgements": 7200,
+  "cross_backend_deliveries": 7200,
+  "p95_cross_backend_delivery_ms": 18.12995800000499,
+  "p95_load_generator_drift_ms": 4.592375000000175,
+  "all_clients_converged": true,
+  "errors": 0,
+  "disconnected": {},
+  "timestamp_utc": "2026-11-10T08:10:22.010Z"
+}
